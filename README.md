@@ -1,37 +1,82 @@
-# LETAN Remix Studio — standalone prototype
+# LETAN Remix Studio
 
-Independent, responsive website creation wizard inspired by the high-level workflow observed at builder.peachworlds.com/remix. All source code is independently authored and uses no PeachWeb logos, proprietary 3D assets, source code or private endpoints.
+LETAN Remix Studio is evolving from a browser-only HTML prototype into an authenticated, multi-project AI website builder. Phase 1 replaces the one-off `siteHtml()` data flow with a durable project model, a component renderer, server-side ownership checks, version snapshots, and an R2 asset contract.
 
-## Features
+The original static prototype is still preserved in the repository as `index.html`, `app.js`, and `styles.css`. It is no longer the application architecture and is not imported by the Next.js app.
 
-- Choose industry (Agency, AI Tools, Consulting, CRM, Finance, Investor, SaaS, Sales & Marketing)
-- Five-step flow: name, project description, visual style, 3D-inspired motif, color customization
-- Local live preview via sandboxed iframe (`srcdoc`)
-- Generate a responsive, single-file HTML website from answers
-- Export a downloadable `.html` file
-- Responsive mobile/tablet/desktop; reduced-motion support
-- No API key, backend, build step or paid service needed for the prototype
+## Phase 1 capabilities
 
-## Run
+- Next.js App Router and strict TypeScript
+- Email/password authentication through Better Auth
+- PostgreSQL schema and Drizzle migrations
+- Authenticated project dashboard and project creation
+- Owner-isolated project, page, component, scene, asset, and version APIs
+- Structured page/component renderer (no `iframe.srcdoc` and no generated HTML string)
+- Stable UUIDs for pages and components
+- Theme-token and Three.js-ready scene contracts
+- Immutable project version snapshots
+- Cloudflare R2 signed uploads with MIME/size validation and upload verification
+- Persistent database-backed API rate limiting and audit records
+- Health endpoint, lint, typecheck, unit tests, and production build scripts
 
-From the project directory:
+AI generation, a full Three.js renderer, visual drag/drop editing, and production publishing workers are deliberately not claimed as complete. Their tables and interfaces exist so those phases can be added without replacing the Phase 1 model.
+
+## Local setup
+
+Requirements: Node.js 22+, PostgreSQL 16+, and an R2 bucket for asset operations.
 
 ```bash
-python3 -m http.server 8080
+cp .env.example .env.local
+npm install
+npm run db:migrate
+npm run dev
 ```
 
-Open `http://localhost:8080`.
+For a disposable local PostgreSQL database:
 
-## Deploy on Vercel
+```bash
+docker compose up -d postgres
+npm run db:migrate
+```
 
-Import the standalone repository as a Vercel Project. Choose **Other**, root `./`, no build command. Set output directory blank/default. No environment variables are required.
+Open `http://localhost:3000`, create an account, then create a project. R2 variables are only required when requesting an asset upload.
 
-## Technical limits (important)
+Generate a strong production auth secret separately and put it in the deployment provider's server-side environment. Never commit it or expose it with a `NEXT_PUBLIC_` prefix.
 
-This is **not** a full production AI 3D website generation engine. The current generation is deterministic template-based; the preview's 3D-inspired artwork is CSS, not WebGL or copyrighted GLB assets. It does not provision hosting, persistent projects, accounts, billing, backend, AI model access, or PeachWeb's 3D template library. Contact link in generated sites is `hello@example.com`, which **must** be edited before publishing.
+## Quality gates
 
-To build a production platform, add authenticated user workspaces, persistent database/storage, real WebGL scenes (Three.js), template editor, server-side AI generation using a configured provider and rate limits, and publishing/custom-domain workflows. Never put provider tokens in frontend code.
+```bash
+npm run lint
+npm run typecheck
+npm test
+npm run build
+```
 
-## Data safety
+Database schema changes must be made in `src/server/db/schema.ts`, followed by `npm run db:generate`. Commit both the SQL migration and Drizzle metadata; never rewrite a migration already applied in an environment.
 
-User inputs are kept only in the current browser session. No lead forms or remote APIs are called. Downloaded HTML contains the entered business details.
+## Documentation
+
+- [Architecture](docs/ARCHITECTURE.md)
+- [REST API](docs/API.md)
+- [Migration and deployment](docs/MIGRATION.md)
+- [Security model](docs/SECURITY.md)
+
+## Repository map
+
+```text
+src/app/                 Next.js pages and REST route handlers
+src/components/          Auth and project UI components
+src/domain/              Versioned Zod contracts shared by all future phases
+src/renderer/            Component registry and structured React renderer
+src/server/auth.ts       Better Auth server configuration
+src/server/db/           Drizzle schema and lazy PostgreSQL connection
+src/server/services/     Ownership-safe business operations
+src/server/storage/      Server-only R2 adapter
+drizzle/                 Append-only SQL migrations and metadata
+docs/                    Architecture, API, security, and migration guides
+index.html/app.js/css    Preserved v0 static prototype; not used by Next.js
+```
+
+## Independent implementation
+
+The public high-level flow at `builder.peachworlds.com/remix` was used only as product reference. This repository does not use PeachWeb source code, private APIs, logos, commercial templates, or proprietary 3D assets.

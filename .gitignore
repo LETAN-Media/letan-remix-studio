@@ -3,4 +3,9 @@
 !.env.example
 node_modules/
 .vercel/
+.next/
+coverage/
+*.tsbuildinfo
+drizzle/meta/_journal.json.tmp
 .DS_Store
+.toolnet/
