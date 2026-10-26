@@ -4,7 +4,7 @@ LETAN Remix Studio is evolving from a browser-only HTML prototype into an authen
 
 The original static prototype is still preserved in the repository as `index.html`, `app.js`, and `styles.css`. It is no longer the application architecture and is not imported by the Next.js app.
 
-## Phase 1 capabilities
+## Current capabilities
 
 - Next.js App Router and strict TypeScript
 - Email/password authentication through Better Auth
@@ -12,14 +12,18 @@ The original static prototype is still preserved in the repository as `index.htm
 - Authenticated project dashboard and project creation
 - Owner-isolated project, page, component, scene, asset, and version APIs
 - Structured page/component renderer (no `iframe.srcdoc` and no generated HTML string)
+- Public five-step Remix Builder at `/` and `/remix`, with session persistence before sign-in
+- Three working WebGL scene modules with responsive quality scaling and a non-WebGL fallback
+- Live theme/color editing backed by a valid `ProjectSnapshot` preview
+- Authentication handoff that returns the user to the in-progress Remix brief
 - Stable UUIDs for pages and components
-- Theme-token and Three.js-ready scene contracts
+- Theme-token and typed Three.js scene contracts
 - Immutable project version snapshots
 - Cloudflare R2 signed uploads with MIME/size validation and upload verification
 - Persistent database-backed API rate limiting and audit records
 - Health endpoint, lint, typecheck, unit tests, and production build scripts
 
-AI generation, a full Three.js renderer, visual drag/drop editing, and production publishing workers are deliberately not claimed as complete. Their tables and interfaces exist so those phases can be added without replacing the Phase 1 model.
+AI generation, GLB/GLTF asset-driven scene authoring, the full visual drag/drop editor, and production publishing workers are deliberately not claimed as complete. Their tables and interfaces exist so those phases can be added without replacing the Phase 1 model. When no AI provider/worker is configured, Generate reports that state instead of producing placeholder output.
 
 ## Local setup
 
@@ -39,7 +43,7 @@ docker compose up -d postgres
 npm run db:migrate
 ```
 
-Open `http://localhost:3000`, create an account, then create a project. R2 variables are only required when requesting an asset upload.
+Open `http://localhost:3000` to start the Remix Builder without an account. Authentication is requested only when the user reaches a durable operation such as Generate. The dashboard and project APIs remain authenticated. R2 variables are only required when requesting an asset upload.
 
 Generate a strong production auth secret separately and put it in the deployment provider's server-side environment. Never commit it or expose it with a `NEXT_PUBLIC_` prefix.
 
@@ -65,7 +69,7 @@ Database schema changes must be made in `src/server/db/schema.ts`, followed by `
 
 ```text
 src/app/                 Next.js pages and REST route handlers
-src/components/          Auth and project UI components
+src/components/          Remix Builder, WebGL scenes, auth, and project UI components
 src/domain/              Versioned Zod contracts shared by all future phases
 src/renderer/            Component registry and structured React renderer
 src/server/auth.ts       Better Auth server configuration

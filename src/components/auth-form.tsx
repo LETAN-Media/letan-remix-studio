@@ -1,10 +1,11 @@
 "use client";
 
+import type { Route } from "next";
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 
-export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
+export function AuthForm({ mode, returnTo = "/dashboard" }: { mode: "sign-in" | "sign-up"; returnTo?: string }) {
   const router = useRouter();
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
@@ -21,15 +22,15 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
           name: String(form.get("name") ?? ""),
           email,
           password,
-          callbackURL: "/dashboard",
+          callbackURL: returnTo,
         })
-      : await authClient.signIn.email({ email, password, callbackURL: "/dashboard" });
+      : await authClient.signIn.email({ email, password, callbackURL: returnTo });
     if (result.error) {
       setError(result.error.message ?? "Authentication failed");
       setPending(false);
       return;
     }
-    router.push("/dashboard");
+    router.push(returnTo as Route);
     router.refresh();
   }
 

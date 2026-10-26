@@ -6,7 +6,8 @@ LETAN Remix Studio uses a modular monolith for synchronous product APIs and sepa
 
 ```text
 Browser
-  ├─ Next.js pages / dashboard
+  ├─ public Remix Builder / structured live preview
+  ├─ authenticated dashboard / project workspace
   └─ REST API
        ├─ Better Auth session
        ├─ ownership + validation + rate limit
@@ -47,7 +48,9 @@ The React renderer consumes a validated snapshot. Future editor operations updat
 
 ### 3D
 
-`SceneConfig` is renderer-neutral and supports module selection, GLB/GLTF asset reference, quality, camera, lighting, material, and animation. Phase 3 adds independent scene modules behind a registry. Unsupported WebGL devices use a scene-defined poster/fallback; the database contract does not change.
+`SceneConfig` is renderer-neutral and supports module selection, GLB/GLTF asset reference, quality, camera, lighting, material, and animation. The public builder currently ships three independent procedural Three.js modules (`orbital-glass`, `prism-bloom`, and `kinetic-rings`) with responsive pixel density, reduced-motion handling, resource disposal, and a non-WebGL fallback. Phase 3 extends that registry with licensed GLB/GLTF assets and editor-level camera, light, material, and performance controls; the database contract does not change.
+
+The anonymous five-step brief is stored in session storage and converted to a validated `ProjectSnapshot` for live preview. It does not become a durable project until the authenticated generation workflow succeeds. Authentication is checked on demand at that boundary, so the public Builder does not depend on a database session merely to render.
 
 ### Visual editor and AI edits
 
