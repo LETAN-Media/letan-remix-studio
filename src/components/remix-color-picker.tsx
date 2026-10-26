@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
 
 type Hsv = { h: number; s: number; v: number };
@@ -89,19 +89,48 @@ export function RemixColorPicker({
     }
   }
 
+  function moveSaturation(event: KeyboardEvent<HTMLDivElement>) {
+    const step = event.shiftKey ? 0.1 : 0.02;
+    const movement = {
+      ArrowLeft: { s: -step, v: 0 },
+      ArrowRight: { s: step, v: 0 },
+      ArrowUp: { s: 0, v: step },
+      ArrowDown: { s: 0, v: -step },
+    }[event.key];
+    if (!movement) return;
+    event.preventDefault();
+    emit({ ...hsv, s: clamp(hsv.s + movement.s), v: clamp(hsv.v + movement.v) });
+  }
+
+  useEffect(() => {
+    const closeOnEscape = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [onClose]);
+
   if (typeof document === "undefined") return null;
 
   return createPortal(
     <div className="color-popover" role="dialog" aria-label={`${label} color picker`}>
       <div className="color-popover-head">
-        <span>{label}</span>
+        <span>Color picker</span>
         <button type="button" onClick={onClose} aria-label="Close color picker">×</button>
       </div>
       <div
         ref={saturationRef}
         className="color-saturation"
+        role="slider"
+        tabIndex={0}
+        aria-label={`${label} saturation and brightness`}
+        aria-valuetext={`${Math.round(hsv.s * 100)}% saturation, ${Math.round(hsv.v * 100)}% brightness`}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(hsv.v * 100)}
         style={{ backgroundColor: `hsl(${hsv.h} 100% 50%)` }}
         onPointerDown={pickSaturation}
+        onKeyDown={moveSaturation}
         onPointerMove={(event) => {
           if (event.buttons === 1) pickSaturation(event);
         }}
@@ -119,20 +148,19 @@ export function RemixColorPicker({
         />
       </label>
       <div className="hex-control">
-        <span style={{ background: value }} aria-hidden="true" />
-        <label>
-          HEX
-          <input
-            value={hexInput}
-            maxLength={7}
-            spellCheck={false}
-            onChange={(event) => setHexInput(event.target.value)}
-            onBlur={commitHex}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") commitHex();
-            }}
-          />
-        </label>
+        <span className="hex-label">Hex</span>
+        <span className="hex-swatch" style={{ background: value }} aria-hidden="true" />
+        <input
+          aria-label={`${label} hex color`}
+          value={hexInput}
+          maxLength={7}
+          spellCheck={false}
+          onChange={(event) => setHexInput(event.target.value)}
+          onBlur={commitHex}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") commitHex();
+          }}
+        />
       </div>
     </div>,
     document.body,

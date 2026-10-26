@@ -50,4 +50,19 @@ describe("Remix Builder draft", () => {
       expect(snapshot.pages[0]?.components[0]?.props.heading).toBe("Signal Atelier");
     }
   });
+
+  it("keeps visual choices explicit without breaking the structured preview fallback", () => {
+    expect(DEFAULT_REMIX_DRAFT.styleChosen).toBe(false);
+    expect(DEFAULT_REMIX_DRAFT.sceneChosen).toBe(false);
+
+    const snapshot = buildDraftSnapshot({
+      ...DEFAULT_REMIX_DRAFT,
+      name: "Unselected Brief",
+      description: "A draft that has not selected its visual direction yet.",
+      step: 3,
+    });
+
+    expect(projectSnapshotSchema.safeParse(snapshot).success).toBe(true);
+    expect(snapshot.scene.module).toBe("orbital-glass");
+  });
 });

@@ -1,0 +1,11 @@
+# Reference screenshots and traces are local audit evidence only.
+# Do not redistribute PeachWeb imagery, models, textures, browser state, or assets.
+screenshots/
+diffs/
+traces/
+network/
+assets/
+*.har
+*.webm
+*.zip
+cookies*.json

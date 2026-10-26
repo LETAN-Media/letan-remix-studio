@@ -8,6 +8,7 @@ type Props = {
   colors: [string, string, string, string];
   compact?: boolean;
   className?: string;
+  stage?: number;
 };
 
 function disposeObject(root: THREE.Object3D) {
@@ -19,11 +20,12 @@ function disposeObject(root: THREE.Object3D) {
   });
 }
 
-export function RemixScene({ variant, colors, compact = false, className = "" }: Props) {
+export function RemixScene({ variant, colors, compact = false, className = "", stage }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const hostRef = useRef<HTMLDivElement>(null);
   const colorsRef = useRef(colors);
   const runtimeRef = useRef<{
+    renderer: THREE.WebGLRenderer;
     physical: THREE.MeshPhysicalMaterial;
     ringMaterial: THREE.MeshStandardMaterial;
     hemisphere: THREE.HemisphereLight;
@@ -61,7 +63,7 @@ export function RemixScene({ variant, colors, compact = false, className = "" }:
     }
 
     const fallbackReset = window.setTimeout(() => setFallback(false), 0);
-    renderer.setClearColor(0x000000, 0);
+    renderer.setClearColor(compact ? activeColors[0] : stage === 5 ? "#c8afd4" : "#b9bfdc", 1);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = compact ? 1.25 : 1.38;
@@ -72,6 +74,11 @@ export function RemixScene({ variant, colors, compact = false, className = "" }:
     camera.position.set(0, 0.1, compact ? 5.4 : 6.2);
 
     const group = new THREE.Group();
+    const baseX = compact ? 0 : stage === 0 ? 0 : stage === 5 ? -2.25 : 2.2;
+    const baseY = compact ? 0 : stage === 0 ? 1.45 : 0;
+    const baseScale = compact ? 1 : stage === 0 ? 0.86 : 0.94;
+    group.position.set(baseX, baseY, 0);
+    group.scale.setScalar(baseScale);
     scene.add(group);
 
     const primary = new THREE.Color(activeColors[1]);
@@ -90,6 +97,8 @@ export function RemixScene({ variant, colors, compact = false, className = "" }:
       thickness: 1.8,
       clearcoat: 1,
       clearcoatRoughness: 0.12,
+      transparent: true,
+      opacity: 0.84,
     });
     const ringMaterial = new THREE.MeshStandardMaterial({
       color: lightColor,
@@ -163,7 +172,7 @@ export function RemixScene({ variant, colors, compact = false, className = "" }:
     const rim = new THREE.PointLight(activeColors[2], 18, 12, 2);
     rim.position.set(3, -1, 3);
     scene.add(rim);
-    runtimeRef.current = { physical, ringMaterial, hemisphere, rim };
+    runtimeRef.current = { renderer, physical, ringMaterial, hemisphere, rim };
 
     let pointerX = 0;
     let pointerY = 0;
@@ -193,15 +202,15 @@ export function RemixScene({ variant, colors, compact = false, className = "" }:
     canvas.addEventListener("webglcontextlost", onContextLost);
     resize();
 
-    const clock = new THREE.Clock();
-    const render = () => {
+    const startedAt = performance.now();
+    const render = (timestamp = performance.now()) => {
       frame = requestAnimationFrame(render);
       if (!visible) return;
-      const elapsed = clock.getElapsedTime();
+      const elapsed = (timestamp - startedAt) / 1000;
       if (!prefersReducedMotion) {
         group.rotation.y += (pointerX * 0.55 + elapsed * 0.11 - group.rotation.y) * 0.025;
         group.rotation.x += (-pointerY * 0.28 + Math.sin(elapsed * 0.55) * 0.05 - group.rotation.x) * 0.03;
-        group.position.y = Math.sin(elapsed * 0.72) * (compact ? 0.07 : 0.12);
+        group.position.y = baseY + Math.sin(elapsed * 0.72) * (compact ? 0.07 : 0.12);
         stars.rotation.y = elapsed * 0.018;
       }
       renderer.render(scene, camera);
@@ -222,7 +231,7 @@ export function RemixScene({ variant, colors, compact = false, className = "" }:
       renderer.dispose();
       renderer.forceContextLoss();
     };
-  }, [variant, compact]);
+  }, [variant, compact, stage]);
 
   useEffect(() => {
     const runtime = runtimeRef.current;
@@ -234,10 +243,11 @@ export function RemixScene({ variant, colors, compact = false, className = "" }:
     runtime.hemisphere.color.set(colors[3]);
     runtime.hemisphere.groundColor.set(colors[0]);
     runtime.rim.color.set(colors[2]);
-  }, [colors]);
+    if (compact) runtime.renderer.setClearColor(colors[0], 1);
+  }, [colors, compact]);
 
   return (
-    <div ref={hostRef} className={`remix-scene ${compact ? "remix-scene--compact" : ""} ${className}`} aria-hidden="true">
+    <div ref={hostRef} className={`remix-scene ${compact ? "remix-scene--compact" : ""} ${fallback ? "remix-scene--fallback" : ""} ${className}`} aria-hidden="true">
       <canvas ref={canvasRef} />
       {fallback ? <div className="remix-scene-fallback"><span /></div> : null}
     </div>

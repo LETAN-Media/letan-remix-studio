@@ -33,6 +33,8 @@ export type RemixDraft = {
   description: string;
   styleId: (typeof REMIX_STYLES)[number]["id"];
   sceneId: (typeof REMIX_SCENES)[number]["id"];
+  styleChosen: boolean;
+  sceneChosen: boolean;
   colors: [string, string, string, string];
   step: number;
 };
@@ -43,7 +45,9 @@ export const DEFAULT_REMIX_DRAFT: RemixDraft = {
   description: "",
   styleId: "artificial-aura",
   sceneId: "orbital-glass",
-  colors: ["#121630", "#7c72ee", "#c7b8ff", "#8ef1e3"],
+  styleChosen: false,
+  sceneChosen: false,
+  colors: ["#815BBA", "#FDCFFF", "#9E9E9E", "#AEA4CA"],
   step: 0,
 };
 
@@ -68,6 +72,8 @@ export function sanitizeRemixDraft(value: unknown): RemixDraft {
     category,
     styleId,
     sceneId,
+    styleChosen: typeof candidate.styleChosen === "boolean" ? candidate.styleChosen : (candidate.step ?? 0) >= 4,
+    sceneChosen: typeof candidate.sceneChosen === "boolean" ? candidate.sceneChosen : (candidate.step ?? 0) >= 5,
     colors,
     name: typeof candidate.name === "string" ? candidate.name.slice(0, 120) : "",
     description: typeof candidate.description === "string" ? candidate.description.slice(0, 2000) : "",

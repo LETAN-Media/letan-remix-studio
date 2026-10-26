@@ -64,6 +64,7 @@ Database schema changes must be made in `src/server/db/schema.ts`, followed by `
 - [REST API](docs/API.md)
 - [Migration and deployment](docs/MIGRATION.md)
 - [Security model](docs/SECURITY.md)
+- [PeachWeb public-reference audit](reference-audit/AUDIT.md)
 
 ## Repository map
 

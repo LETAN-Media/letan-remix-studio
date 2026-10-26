@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PageRenderer } from "@/renderer/page-renderer";
 import { authClient } from "@/lib/auth-client";
@@ -22,13 +22,18 @@ const STORAGE_KEY = "letan-remix-draft-v1";
 const STEP_COPY = [
   null,
   { title: "Start with Basics", question: "What's the name of your business/project?" },
-  { title: "Business Description", question: "What do you do, who is it for, and what should the site achieve?" },
-  { title: "Pick Your Style", question: "Choose a visual direction for your new website." },
-  { title: "Select 3D Design", question: "Choose a live WebGL scene for the hero." },
-  { title: "Color styles", question: "Tune your palette and inspect the structured live preview." },
+  { title: "Start with Basics", question: "That's a cool name. What is the business about?" },
+  { title: "Pick Your Style", question: "Select the style that fits your site." },
+  { title: "Select 3D Design", question: "Choose the 3D design that you like most." },
+  { title: "Color styles", question: "Customize the colors to fit your brand." },
 ] as const;
 
-const COLOR_LABELS = ["Environment", "Primary", "Secondary", "3D light"];
+const COLOR_ROWS = [
+  { label: "3D Main Primary", colorIndex: 1 },
+  { label: "3D Main Secondary", colorIndex: 2 },
+  { label: "3D Environment Primary", colorIndex: 0 },
+  { label: "3D Lights Main", colorIndex: 3 },
+] as const;
 
 function Brand({ compact = false }: { compact?: boolean }) {
   return (
@@ -45,6 +50,7 @@ function Spark() {
 
 export function RemixBuilder({ aiConfigured }: { aiConfigured: boolean }) {
   const router = useRouter();
+  const builderRef = useRef<HTMLElement>(null);
   const [draft, setDraft] = useState<RemixDraft>(DEFAULT_REMIX_DRAFT);
   const [hydrated, setHydrated] = useState(false);
   const [activeColor, setActiveColor] = useState<number | null>(null);
@@ -77,14 +83,34 @@ export function RemixBuilder({ aiConfigured }: { aiConfigured: boolean }) {
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(draft));
   }, [draft, hydrated]);
 
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    const syncHeight = () => {
+      builderRef.current?.style.setProperty("--remix-viewport-height", `${viewport?.height ?? window.innerHeight}px`);
+    };
+    syncHeight();
+    viewport?.addEventListener("resize", syncHeight);
+    viewport?.addEventListener("scroll", syncHeight);
+    window.addEventListener("resize", syncHeight);
+    return () => {
+      viewport?.removeEventListener("resize", syncHeight);
+      viewport?.removeEventListener("scroll", syncHeight);
+      window.removeEventListener("resize", syncHeight);
+    };
+  }, []);
+
   const snapshot = useMemo(() => buildDraftSnapshot(draft), [draft]);
   const scene = REMIX_SCENES.find((item) => item.id === draft.sceneId) ?? REMIX_SCENES[0];
   const currentStep = draft.step >= 1 ? STEP_COPY[draft.step] : null;
   const nextDisabled = draft.step === 1
-    ? draft.name.trim().length < 2
+    ? draft.name.trim().length === 0
     : draft.step === 2
-      ? draft.description.trim().length < 20
-      : false;
+      ? draft.description.trim().length === 0
+      : draft.step === 3
+        ? !draft.styleChosen
+        : draft.step === 4
+          ? !draft.sceneChosen
+          : false;
 
   function patch(values: Partial<RemixDraft>) {
     setDraft((current) => ({ ...current, ...values }));
@@ -108,8 +134,12 @@ export function RemixBuilder({ aiConfigured }: { aiConfigured: boolean }) {
   }
 
   function chooseStyle(styleId: RemixDraft["styleId"]) {
-    const style = REMIX_STYLES.find((item) => item.id === styleId) ?? REMIX_STYLES[0];
-    patch({ styleId, colors: [...style.colors] as RemixDraft["colors"] });
+    setActiveColor(null);
+    patch({ styleId, styleChosen: true, step: 4 });
+  }
+
+  function chooseScene(sceneId: RemixDraft["sceneId"]) {
+    patch({ sceneId, sceneChosen: true });
   }
 
   function updateColor(index: number, color: string) {
@@ -140,6 +170,7 @@ export function RemixBuilder({ aiConfigured }: { aiConfigured: boolean }) {
 
   return (
     <main
+      ref={builderRef}
       className={`remix-builder remix-step-${draft.step} ${previewOnly ? "remix-preview-only" : ""}`}
       style={
         {
@@ -151,13 +182,15 @@ export function RemixBuilder({ aiConfigured }: { aiConfigured: boolean }) {
       }
     >
       <div className="remix-ambient" aria-hidden="true" />
-      <RemixScene variant={scene.id} colors={draft.colors} className="remix-background-scene" />
+      <RemixScene variant={scene.id} colors={draft.colors} stage={draft.step} className="remix-background-scene" />
 
       {draft.step === 0 ? (
         <>
           <button className="remix-skip" type="button" onClick={() => start()} data-testid="skip-builder">Skip</button>
           <section className="remix-intro" aria-labelledby="remix-title">
-            <h1 id="remix-title">Create a Site<br />in Seconds.</h1>
+            <h1 id="remix-title" aria-label="Create a Site in Seconds">
+              {['Create', 'a', 'Site', 'in', 'Seconds'].map((word, index) => <span key={word} style={{ "--word-index": index } as React.CSSProperties}>{word}</span>)}
+            </h1>
             <div className="remix-category-panel">
               <p><Spark />What kind of site do you want to generate?</p>
               <div className="remix-category-grid">
@@ -172,13 +205,10 @@ export function RemixBuilder({ aiConfigured }: { aiConfigured: boolean }) {
           </section>
         </>
       ) : (
-        <section className={`remix-workspace ${draft.step === 5 ? "remix-workspace--preview" : ""}`}>
-          <article className={`remix-wizard-card ${draft.step === 3 || draft.step === 4 ? "remix-wizard-card--catalog" : ""}`}>
+        <section className={`remix-workspace ${draft.step === 5 || (draft.step === 4 && draft.sceneChosen) ? "remix-workspace--preview" : ""}`}>
+          <article className="remix-wizard-card">
             <header className="remix-wizard-head">
               <p>Step {draft.step} of 5</p>
-              <div aria-label={`Step ${draft.step} of 5`}>
-                {[1, 2, 3, 4, 5].map((step) => <i key={step} className={step <= draft.step ? "active" : ""} />)}
-              </div>
             </header>
             <h1>{currentStep?.title}</h1>
             <p className="remix-question"><Spark />{currentStep?.question}</p>
@@ -186,12 +216,12 @@ export function RemixBuilder({ aiConfigured }: { aiConfigured: boolean }) {
             <div className="remix-step-content" key={draft.step}>
               {draft.step === 1 ? (
                 <label className="remix-text-field">
-                  <span>Business or project name</span>
+                  <span className="remix-visually-hidden">Business or project name</span>
                   <input
                     autoFocus
                     value={draft.name}
                     maxLength={120}
-                    placeholder="Example: Northstar Studio"
+                    aria-label="Business or project name"
                     onChange={(event) => patch({ name: event.target.value })}
                     onKeyDown={(event) => {
                       if (event.key === "Enter" && !nextDisabled) goNext();
@@ -202,15 +232,14 @@ export function RemixBuilder({ aiConfigured }: { aiConfigured: boolean }) {
 
               {draft.step === 2 ? (
                 <label className="remix-text-field remix-text-field--area">
-                  <span>Business, audience, and goal</span>
+                  <span className="remix-visually-hidden">Business description</span>
                   <textarea
                     autoFocus
                     value={draft.description}
                     maxLength={2000}
-                    placeholder="We help… Our audience is… The website should…"
+                    aria-label="Business description"
                     onChange={(event) => patch({ description: event.target.value })}
                   />
-                  <small>{draft.description.trim().length}/20 minimum characters</small>
                 </label>
               ) : null}
 
@@ -220,14 +249,14 @@ export function RemixBuilder({ aiConfigured }: { aiConfigured: boolean }) {
                     <button
                       key={style.id}
                       type="button"
-                      className={draft.styleId === style.id ? "selected" : ""}
-                      aria-pressed={draft.styleId === style.id}
+                      className={draft.styleChosen && draft.styleId === style.id ? "selected" : ""}
+                      aria-pressed={draft.styleChosen && draft.styleId === style.id}
                       onClick={() => chooseStyle(style.id)}
                     >
-                      <span className={`remix-style-thumb style-${index}`} style={{ background: `linear-gradient(140deg, ${style.colors[0]}, ${style.colors[1]} 48%, ${style.colors[2]})` }}>
+                      <span className={`remix-style-thumb style-${index}`} style={{ "--style-a": style.colors[0], "--style-b": style.colors[1], "--style-c": style.colors[2] } as React.CSSProperties}>
                         <i /><i /><i />
                       </span>
-                      <b>{style.name}</b>
+                      <b>{style.name}</b><span className="remix-choice-check" aria-hidden="true">✓</span>
                     </button>
                   ))}
                 </div>
@@ -239,12 +268,12 @@ export function RemixBuilder({ aiConfigured }: { aiConfigured: boolean }) {
                     <button
                       key={item.id}
                       type="button"
-                      className={draft.sceneId === item.id ? "selected" : ""}
-                      aria-pressed={draft.sceneId === item.id}
-                      onClick={() => patch({ sceneId: item.id })}
+                      className={draft.sceneChosen && draft.sceneId === item.id ? "selected" : ""}
+                      aria-pressed={draft.sceneChosen && draft.sceneId === item.id}
+                      onClick={() => chooseScene(item.id)}
                     >
-                      <span className={`remix-scene-thumb scene-${index}`}><i /><i /><i /></span>
-                      <span><b>{item.name}</b><small>{item.description}</small><em>Live WebGL</em></span>
+                      <span className={`remix-scene-thumb scene-${index}`}><i /><i /><i /><em>Live</em><b>{item.name}</b></span>
+                      <span className="remix-choice-check" aria-hidden="true">✓</span>
                     </button>
                   ))}
                 </div>
@@ -252,18 +281,18 @@ export function RemixBuilder({ aiConfigured }: { aiConfigured: boolean }) {
 
               {draft.step === 5 ? (
                 <div className="remix-palette" data-testid="color-styles">
-                  {COLOR_LABELS.map((label, index) => (
+                  <b className="remix-palette-title">Color Palette</b>
+                  {COLOR_ROWS.map(({ label, colorIndex }, index) => (
                     <div className="remix-color-row" key={label}>
                       <button type="button" onClick={() => setActiveColor(activeColor === index ? null : index)} aria-expanded={activeColor === index}>
-                        <span style={{ background: draft.colors[index] }} />
-                        <span><b>{label}</b><code>{draft.colors[index].toUpperCase()}</code></span>
-                        <i aria-hidden="true">⌄</i>
+                        <b>{label}</b>
+                        <span><i style={{ background: draft.colors[colorIndex] }} /><code>{draft.colors[colorIndex].toUpperCase()}</code></span>
                       </button>
                       {activeColor === index ? (
                         <RemixColorPicker
                           label={label}
-                          value={draft.colors[index]}
-                          onChange={(color) => updateColor(index, color)}
+                          value={draft.colors[colorIndex]}
+                          onChange={(color) => updateColor(colorIndex, color)}
                           onClose={() => setActiveColor(null)}
                         />
                       ) : null}
@@ -288,7 +317,7 @@ export function RemixBuilder({ aiConfigured }: { aiConfigured: boolean }) {
             </footer>
           </article>
 
-          {draft.step === 5 ? (
+          {draft.step === 5 || (draft.step === 4 && draft.sceneChosen) ? (
             <section className="remix-live-preview" aria-label="Website live preview">
               <header>
                 <div><i /><i /><i /></div>
