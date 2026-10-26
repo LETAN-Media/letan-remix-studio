@@ -1,6 +1,12 @@
 import "server-only";
 
-import { DeleteObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import {
+  DeleteObjectCommand,
+  GetObjectCommand,
+  HeadObjectCommand,
+  PutObjectCommand,
+  S3Client,
+} from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 type R2Config = {
@@ -13,9 +19,9 @@ type R2Config = {
 function config(): R2Config {
   const values = {
     accountId: process.env.R2_ACCOUNT_ID,
-    accessKeyId: process.env.R2_ACCESS_KEY_ID,
+    accessKeyId: process.env.R2_ACCESS_KEY_ID ?? process.env.R2_ACCOUNT_KEY_ID,
     secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
-    bucket: process.env.R2_BUCKET_NAME,
+    bucket: process.env.R2_BUCKET_NAME ?? process.env.R2_BUCKET,
   };
   const missing = Object.entries(values).filter(([, value]) => !value).map(([key]) => key);
   if (missing.length) throw new Error(`R2 is not configured: ${missing.join(", ")}`);
@@ -46,7 +52,9 @@ export async function createAssetUploadUrl(input: {
     Key: input.objectKey,
     ContentType: input.mimeType,
     ContentLength: input.size,
-    ChecksumSHA256: input.checksum,
+    ChecksumSHA256: input.checksum
+      ? Buffer.from(input.checksum, "hex").toString("base64")
+      : undefined,
   });
   return getSignedUrl(r2, command, { expiresIn: 10 * 60 });
 }
@@ -54,6 +62,22 @@ export async function createAssetUploadUrl(input: {
 export async function verifyAssetObject(objectKey: string) {
   const { client: r2, bucket } = getClient();
   return r2.send(new HeadObjectCommand({ Bucket: bucket, Key: objectKey }));
+}
+
+export async function createAssetDownloadUrl(input: {
+  objectKey: string;
+  filename: string;
+  mimeType: string;
+}) {
+  const { client: r2, bucket } = getClient();
+  const filename = input.filename.replace(/["\\\r\n]/g, "_");
+  const command = new GetObjectCommand({
+    Bucket: bucket,
+    Key: input.objectKey,
+    ResponseContentType: input.mimeType,
+    ResponseContentDisposition: `inline; filename="${filename}"`,
+  });
+  return getSignedUrl(r2, command, { expiresIn: 5 * 60 });
 }
 
 export async function deleteAssetObject(objectKey: string) {

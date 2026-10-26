@@ -2,7 +2,12 @@ import { and, desc, eq } from "drizzle-orm";
 import { getDb } from "@/server/db";
 import { assets } from "@/server/db/schema";
 import { HttpError } from "@/server/http";
-import { createAssetUploadUrl, deleteAssetObject, verifyAssetObject } from "@/server/storage/r2";
+import {
+  createAssetDownloadUrl,
+  createAssetUploadUrl,
+  deleteAssetObject,
+  verifyAssetObject,
+} from "@/server/storage/r2";
 import { getOwnedProject, touchProject } from "./projects";
 
 function safeFilename(filename: string) {
@@ -71,7 +76,13 @@ export async function completeAssetUpload(ownerId: string, projectId: string, as
     .where(and(eq(assets.id, assetId), eq(assets.projectId, projectId), eq(assets.ownerId, ownerId)))
     .limit(1);
   if (!asset) throw new HttpError(404, "ASSET_NOT_FOUND", "Asset was not found");
-  const object = await verifyAssetObject(asset.objectKey);
+  let object;
+  try {
+    object = await verifyAssetObject(asset.objectKey);
+  } catch (error) {
+    await getDb().update(assets).set({ status: "failed", updatedAt: new Date() }).where(eq(assets.id, asset.id));
+    throw error;
+  }
   if (Number(object.ContentLength) !== asset.size || object.ContentType !== asset.mimeType) {
     await getDb().update(assets).set({ status: "failed" }).where(eq(assets.id, asset.id));
     throw new HttpError(422, "ASSET_MISMATCH", "Uploaded object does not match the signed request");
@@ -83,6 +94,26 @@ export async function completeAssetUpload(ownerId: string, projectId: string, as
     .returning();
   await touchProject(projectId);
   return updated;
+}
+
+export async function getAssetAccess(ownerId: string, projectId: string, assetId: string) {
+  const [asset] = await getDb()
+    .select()
+    .from(assets)
+    .where(and(eq(assets.id, assetId), eq(assets.projectId, projectId), eq(assets.ownerId, ownerId)))
+    .limit(1);
+  if (!asset) throw new HttpError(404, "ASSET_NOT_FOUND", "Asset was not found");
+  if (asset.status !== "ready") {
+    throw new HttpError(409, "ASSET_NOT_READY", "Asset upload is not ready");
+  }
+  return {
+    id: asset.id,
+    filename: asset.filename,
+    mimeType: asset.mimeType,
+    size: asset.size,
+    downloadUrl: await createAssetDownloadUrl(asset),
+    expiresIn: 300,
+  };
 }
 
 export async function deleteAsset(ownerId: string, projectId: string, assetId: string) {

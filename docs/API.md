@@ -32,9 +32,9 @@ Failure:
 | `GET/POST` | `/api/projects/:projectId/versions` | List or create immutable project snapshots |
 | `GET/POST` | `/api/projects/:projectId/assets` | List assets or request a signed R2 upload |
 | `POST` | `/api/projects/:projectId/assets/complete` | Verify R2 object metadata and mark an upload ready |
-| `DELETE` | `/api/projects/:projectId/assets/:assetId` | Delete the R2 object and tombstone the asset |
+| `GET/DELETE` | `/api/projects/:projectId/assets/:assetId` | Create an owner-only signed download or delete/tombstone the asset |
 
-The upload request supports JPEG, PNG, WebP, AVIF, MP4, WebM, GLB, and GLTF, with a 100 MiB maximum. It returns a ten-minute signed `PUT` URL. The browser uploads directly to R2, then calls `assets/complete`.
+The upload request supports JPEG, PNG, WebP, AVIF, MP4, WebM, GLB, and GLTF, with a 100 MiB maximum. It returns a ten-minute signed `PUT` URL. The browser uploads directly to R2, then calls `assets/complete`. Ready assets are read through a five-minute signed `GET` URL after another ownership check; `R2_PUBLIC_BASE_URL` is reserved for explicitly published content.
 
 ## Reserved for later phases
 

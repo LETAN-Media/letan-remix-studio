@@ -11,6 +11,7 @@ Do not point production traffic at the Next.js app until all required Phase 1 en
 Required for application/authentication:
 
 - `DATABASE_URL`
+- `DIRECT_URL` (recommended non-pooled migration connection; runtime still uses `DATABASE_URL`)
 - `BETTER_AUTH_SECRET` (at least 32 random bytes)
 - `BETTER_AUTH_URL` (canonical HTTPS origin)
 

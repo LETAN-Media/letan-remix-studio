@@ -4,6 +4,7 @@
 - Authentication uses Better Auth's password hashing and signed sessions; production requires secure cookies and a strong secret.
 - Every data mutation checks project ownership in the server service layer.
 - R2 credentials never reach the browser. Upload URLs expire after ten minutes and bind key, size, MIME, and optional checksum.
+- Draft asset reads require project ownership and use five-minute signed URLs; the public R2 domain is not used as an authorization mechanism.
 - Allowed asset MIME types and maximum size are enforced before signing; object size and MIME are verified before readiness.
 - Auth routes and product APIs have independent rate limits.
 - Generated content is structured data. The renderer does not execute arbitrary code or raw HTML.
